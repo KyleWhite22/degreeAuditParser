@@ -1,18 +1,25 @@
-// Home.js
-import React, { useState, useContext, useEffect } from 'react';
-import CategoryCard from '../CategoryCard/CategoryCard';
-import './Home.css';
-import { parseAuditHTML } from '../../util/api';
-import { UploadContext } from '../../context/UploadContext';
+import React, { useState, useContext, useEffect } from "react";
+import CategoryCard from "../CategoryCard/CategoryCard";
+import "./Home.css";
+import { parseAuditHTML } from "../../util/api";
+import { UploadContext } from "../../context/UploadContext";
 
 const Home = () => {
     const { uploadedData, setUploadedData } = useContext(UploadContext);
     const [categories, setCategories] = useState([]);
+    const [exampleAudit, setExampleAudit] = useState("");
+    const [showExamplePreview, setShowExamplePreview] = useState(true); // 👈 control visibility
 
     useEffect(() => {
         if (uploadedData) {
             const parsedData = parseAuditHTML(uploadedData);
             setCategories(parsedData);
+        } else {
+            // load the example audit for preview
+            fetch("/kyleaudit.html")
+                .then((res) => res.text())
+                .then((html) => setExampleAudit(html))
+                .catch((err) => console.error("Failed to load example audit", err));
         }
     }, [uploadedData]);
 
@@ -25,53 +32,67 @@ const Home = () => {
                 const parsedData = parseAuditHTML(fileContent);
                 setCategories(parsedData);
                 setUploadedData(fileContent);
-            };
-            reader.onerror = (e) => {
-                console.error("Error reading file:", e);
+                setShowExamplePreview(false); // 👈 hide preview once user uploads
             };
             reader.readAsText(file);
         }
     };
 
-    const completedCategories = categories.filter(category => category.isCompleted);
-    const incompleteCategories = categories.filter(category => !category.isCompleted);
+    const completedCategories = categories.filter((c) => c.isCompleted);
+    const incompleteCategories = categories.filter((c) => !c.isCompleted);
 
     return (
         <div className="category-cards-container">
-            <h1>Hi Buckeye! Upload your degree audit here!</h1>
-            <div className="upload-container">
+            <h1>Upload your degree audit here to make it more readable!</h1>
+
+            <div className="upload-box">
+                {/* Upload button */}
                 <label className="upload-button">
                     Upload Degree Audit
-                    <input type="file" onChange={handleFileChange} style={{ display: 'none' }} accept=".html" />
+                    <input
+                        type="file"
+                        onChange={handleFileChange}
+                        style={{ display: "none" }}
+                        accept=".html"
+                    />
                 </label>
-            </div>
-            <div className="upload-container">
 
-                <button
-                    className="demo-button"
-                    onClick={async () => {
-                        const res = await fetch("/kyleaudit.html");
-                        const html = await res.text();
-                        const parsed = parseAuditHTML(html);
-                        setCategories(parsed);
-                        setUploadedData(html);
-                    }}
-                >
-                    Use This Example Audit!
-                </button>
-
+                {/* Example button – only visible until user uploads */}
+                {!uploadedData && (
+                    <button
+                        className="demo-button"
+                        onClick={() => {
+                            const parsed = parseAuditHTML(exampleAudit);
+                            setCategories(parsed);
+                            setUploadedData(exampleAudit);
+                            setShowExamplePreview(false);
+                        }}
+                    >
+                       ↓ Use This Example Audit! ↓
+                    </button>
+                )}
             </div>
+
+            {/* Example audit preview */}
+            {showExamplePreview && exampleAudit && (
+                <div
+                    className="mt-4 max-h-96 overflow-y-scroll border rounded-lg p-3 bg-white shadow-inner"
+                    style={{ fontSize: "0.85rem" }}
+                    dangerouslySetInnerHTML={{ __html: exampleAudit }}
+                />
+            )}
+
             {categories.length > 0 ? (
                 <>
                     <h2>Incomplete Categories</h2>
                     <div className="category-list">
-                        {incompleteCategories.map(category => (
+                        {incompleteCategories.map((category) => (
                             <CategoryCard key={category.id} category={category} />
                         ))}
                     </div>
                     <h2>Completed Categories</h2>
                     <div className="category-list">
-                        {completedCategories.map(category => (
+                        {completedCategories.map((category) => (
                             <CategoryCard key={category.id} category={category} />
                         ))}
                     </div>
@@ -83,4 +104,4 @@ const Home = () => {
     );
 };
 
-export default Home
+export default Home;

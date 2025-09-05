@@ -25,7 +25,7 @@
   color: black;
   background-color: #a2aaad;
   transition: transform 0.3s;
-  width: 800px;
+  width: 200px;
 }
 
 .upload-button:hover{
@@ -47,4 +47,13 @@
 .demo-button:hover {
   background: #bb0000;
   color: white;
+}
+.upload-box {
+  display: flex;
+  flex-direction: column; /* stack children vertically */
+  align-items: center;    /* center contents horizontally */
+  gap: 12px;              /* space between upload + example */
+
+  width: 250px;           /* 👈 pick a width that looks good */
+  margin: 0 auto;         /* 👈 centers the box itself */
 }
