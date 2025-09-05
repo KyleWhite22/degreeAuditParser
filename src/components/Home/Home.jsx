@@ -68,7 +68,7 @@ const Home = () => {
                             setShowExamplePreview(false);
                         }}
                     >
-                       ↓ Use This Example Audit! ↓
+                       ↓ Try This Example Audit! ↓
                     </button>
                 )}
             </div>
