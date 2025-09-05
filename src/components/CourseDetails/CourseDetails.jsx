@@ -1,7 +1,7 @@
 // CourseDetails.js
 import React, { useEffect, useState, useContext } from 'react';
 import { useLocation } from 'react-router-dom';
-import { fetchData } from '../../util/api';
+import { fetchData, parseAuditHTML } from '../../util/api';
 import Popup from '../Popup/Popup';
 import { UploadContext } from '../../context/UploadContext';
 import './CourseDetails.css';
@@ -25,56 +25,65 @@ const CourseDetails = () => {
 
     useEffect(() => {
         if (!category || !uploadedData) return;
-        const fetchClassData = async () => {
+
+        let didCancel = false;
+
+        (async () => {
+            setLoading(true);
+            setError(null);
+
+            const classMap = {};
+            const allLists = [
+                { list: category.class.completed || [], status: "completed" },
+                { list: category.class.incompleted || [], status: "incompleted" },
+            ];
+
             try {
-                const classMap = {};
-                for (const className of category.class.completed) {
-                    const [subject, classNumber] = className.split(/\s+/);
-                    let classData = await fetchData(subject, classNumber);
-                    if (classData.classNumber !== classNumber) {
-                        classData = {
-                            classNumber: classNumber, 
-                            subject: subject,         
-                            title: 'Error Loading Title',
-                            units: 0,
-                            description: 'Error Loading Description',
-                            courseID: '000',
-                        };
+                for (const { list, status } of allLists) {
+                    for (const className of list) {
+                        const [subject, classNumber] = String(className).trim().split(/\s+/);
+                        try {
+                            const fetched = await fetchData(subject, classNumber);
+                            // If not found, fetchData returns a graceful placeholder
+                            classMap[className] = { ...fetched, status };
+                        } catch {
+                            // Absolute fallback if network/HTTP blew up
+                            classMap[className] = {
+                                classNumber,
+                                subject,
+                                title: "Unavailable",
+                                units: 0,
+                                description: "Could not load course details.",
+                                courseID: null,
+                                status,
+                                notFound: true,
+                            };
+                        }
+                        if (didCancel) return;
                     }
-                    
-                    classMap[className] = { ...classData, status: 'completed' };
                 }
-                for (const className of category.class.incompleted) {
-                    const [subject, classNumber] = className.split(/\s+/);
-                    let classData = await fetchData(subject, classNumber);
-                    if (classData.classNumber !== classNumber) {
-                        classData = {
-                            classNumber: classNumber, 
-                            subject: subject,         
-                            title: 'Error Loading Title',
-                            units: 0,
-                            description: 'Error Loading Description',
-                            courseID: '000',
-                        };
-                    }
-                    classMap[className] = { ...classData, status: 'incompleted' };
-                }
-                setClassDataMap(classMap);
-                setLoading(false);
+
+                if (!didCancel) setClassDataMap(classMap);
             } catch (err) {
-                setError(err.message);
-                setLoading(false);
+                if (!didCancel) setError(err.message || "Failed to load");
+            } finally {
+                if (!didCancel) setLoading(false);
             }
+        })();
+
+        return () => {
+            didCancel = true;
         };
-        fetchClassData();
     }, [category, uploadedData]);
 
-    const calculateTotalCredits = (classes) => {
-        return classes.reduce((total, className) => {
-            const classData = classDataMap[className];
-            return total + (classData ? classData.units : 0);
-        }, 0);
-    };
+  const toNum = (v) => (typeof v === "number" ? v : parseFloat(v)) || 0;
+
+const calculateTotalCredits = (classes) => {
+  return (classes || []).reduce((total, className) => {
+    const classData = classDataMap[className];
+    return total + (classData ? toNum(classData.units) : 0);
+  }, 0);
+};
 
     if (loading) return <div>Loading...</div>;
     if (error) return <div>Error: {error}</div>;
@@ -86,7 +95,7 @@ const CourseDetails = () => {
         <div>
             <h2>{category.title}</h2>
             <div className="course-lists-container">
-            <div className="incompleted-courses">
+                <div className="incompleted-courses">
                     <h3>Need to Complete Courses:</h3>
                     <table className="table">
                         <thead>
@@ -95,20 +104,20 @@ const CourseDetails = () => {
                                 <th className="credits-column">Credits</th>
                             </tr>
                         </thead>
-                            <tbody>
-                                {category.class.incompleted.map((incompleteClass, index) => (
+                        <tbody>
+                            {category.class.incompleted.map((incompleteClass, index) => (
                                 <tr key={index} onClick={() => handleClassClick(incompleteClass)} style={{ cursor: 'pointer' }}>
                                     <td className="course-name-column">
                                         {`${classDataMap[incompleteClass]?.subject} ${classDataMap[incompleteClass]?.classNumber}: ${classDataMap[incompleteClass]?.title}` || incompleteClass}
                                     </td>
                                     <td className="credits-column">{classDataMap[incompleteClass]?.units || 'N/A'}</td>
                                 </tr>
-                                ))}
-                                <tr>
-                                    <td className="course-name-column"><strong>Total Credits</strong></td>
-                                    <td className="credits-column"><strong>{incompleteCredits}</strong></td>
-                                    </tr>
-                            </tbody>
+                            ))}
+                            <tr>
+                                <td className="course-name-column"><strong>Total Credits</strong></td>
+                                <td className="credits-column"><strong>{incompleteCredits}</strong></td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
                 <div className="completed-courses">
@@ -121,19 +130,19 @@ const CourseDetails = () => {
                             </tr>
                         </thead>
                         <tbody>
-                                {category.class.completed.map((completeClass, index) => (
+                            {category.class.completed.map((completeClass, index) => (
                                 <tr key={index} onClick={() => handleClassClick(completeClass)} style={{ cursor: 'pointer' }}>
                                     <td className="course-name-column">
                                         {`${classDataMap[completeClass]?.subject} ${classDataMap[completeClass]?.classNumber}: ${classDataMap[completeClass]?.title}` || completeClass}
                                     </td>
                                     <td className="credits-column">{classDataMap[completeClass]?.units || 'N/A'}</td>
                                 </tr>
-                                ))}
-                                <tr>
-                                    <td className="course-name-column"><strong>Total Credits</strong></td>
-                                    <td className="credits-column"><strong>{completedCredits}</strong></td>
-                                    </tr>
-                            </tbody>
+                            ))}
+                            <tr>
+                                <td className="course-name-column"><strong>Total Credits</strong></td>
+                                <td className="credits-column"><strong>{completedCredits}</strong></td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
             </div>
