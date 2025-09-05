@@ -45,6 +45,21 @@ const Home = () => {
                   <input type="file" onChange={handleFileChange} style={{ display: 'none' }} accept=".html" />
               </label>
           </div>
+          <div className="upload-container">
+
+  <button
+    className="demo-button"
+    onClick={async () => {
+      const res = await fetch("/kyleaudit.html");
+      const html = await res.text();
+      const parsed = parseAuditHTML(html);
+      setCategories(parsed);
+      setUploadedData(html); // optional: treat as uploaded
+    }}
+  >
+    Use Example Audit
+  </button>
+</div>
           {categories.length > 0 ? (
               <>
                   <h2>Incomplete Categories</h2>
